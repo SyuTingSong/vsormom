@@ -111,6 +111,10 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
         }
     }
 
+    public function load($id, $clone=false) {
+        return $this->one(['id' => $id], $clone);
+    }
+
     public function one($where = null, $clone = false) {
         if ($clone) {
             $r = $this->medoo->fetch_class(get_class($this), [false])
@@ -171,6 +175,8 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
             $id = $this->medoo->insert($this->get_table_name(), $this->_properties);
             $this->_properties['id'] = $id;
         } else {
+            if (empty($this->_modified))
+                return $this;
             $this->medoo->update($this->get_table_name(), $this->_modified, [
                 'id' => $this->_properties['id']
             ]);
