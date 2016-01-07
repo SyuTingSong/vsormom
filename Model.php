@@ -37,6 +37,11 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
     /**
      * @var array
      */
+    protected static $_validate = [];
+
+    /**
+     * @var array
+     */
     protected $_exported = [];
 
     /**
@@ -88,16 +93,14 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
             switch ($type) {
                 case 'str':
                 case 'string':
-                case 'date':
-                case 'datetime':
                     $this->_properties[$name] = strval($this->_properties[$name]);
                     break;
                 case 'int':
                 case 'integer':
-                case 'decimal':
                     $this->_properties[$name] = intval($this->_properties[$name]);
                     break;
                 case 'flt':
+                case 'dbl':
                 case 'real':
                 case 'float':
                 case 'double':
@@ -362,5 +365,150 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
             $result[$name] = $value;
         }
         return $result;
+    }
+
+    public static function validate(&$data, $validates=null) {
+        $defaultSetting = [
+            'type' => 'string',
+            'default' => null,
+            'canBeNull' => true, // if false, null value would be convert automatically
+            'hash' => false,
+            'trim' => true, // trim before checking
+            'emptyCheck' => 'empty', // callable or false to disable empty check
+            'onEmpty' => 'set',// set/return define onEmptyReturn if use return
+            'onEmptySet' => '__DEFAULT__', //set as default value
+            // an array if enable error check
+            // first element can be 'match', 'contain', 'is', 'not', 'eq', 'ne', 'lt', 'gt', 'el', 'eg', 'call'
+            // second element should be:
+            //     regular expression for match
+            //     comparable value for is/not/eq/ne/lt/gt/el/eg
+            //     callable for call, pass current checking value and entire $data, expecting bool return.
+            'errorCheck' => false,
+            // if errorCheck is enabled, onError can be set or return
+            // onErrorSet and onErrorReturn would be use.
+        ];
+        if (empty($validates))
+            $validates = static::$_validate;
+
+        foreach ($validates as $name => $vDef) {
+            if ($name == '__DEFAULT_RETURN__') continue;
+            if (!array_key_exists($name, $data)) continue;
+
+            $validate = array_merge($defaultSetting, $vDef);
+            $value = &$data[$name];
+            if (is_string($value) && $validate['trim']) {
+                $value = trim($value);
+            }
+
+            if (!is_null($value) || !$validate['canBeNull']) {
+                switch ($validate['type']) {
+                    case 'str':
+                    case 'string':
+                        $value = strval($value);
+                        break;
+                    case 'int':
+                    case 'integer':
+                        $value = intval($value);
+                        break;
+                    case 'flt':
+                    case 'dbl':
+                    case 'real':
+                    case 'float':
+                    case 'double':
+                        $value = floatval($value);
+                        break;
+                    case 'bool':
+                    case 'boolean':
+                        $value = boolval($value);
+                        break;
+                }
+            }
+
+            if ($validate['emptyCheck'] === 'empty') {
+                $isEmpty = empty($value);
+            } elseif (is_callable($validate['emptyCheck'])) {
+                $isEmpty = call_user_func($validate['emptyCheck'], $value);
+            } else {
+                $isEmpty = false;
+            }
+            if ($isEmpty) {
+                $onEmpty  = strtolower($validate['onEmpty']);
+                if ($onEmpty === 'set') {
+                    $value = $validate['onEmptySet'] === '__DEFAULT__' ?
+                        $validate['default'] : $validate['onEmptySet'];
+                    continue; //skip error check
+                } elseif ($onEmpty === 'return') {
+                    return $validate['onEmptyReturn'];
+                } else {
+                    throw new Exception('Unknown onEmpty action for validating ' . $name);
+                }
+            }
+
+            if (is_array($validate['errorCheck'])) {
+                list($operation, $param) = $validate['errorCheck'];
+                switch ($operation) {
+                    case 'match':
+                        $noError = preg_match($param, $value) ? true : false;
+                        break;
+                    case 'contain':
+                        $noError = strpos($value, $param) !== false;
+                        break;
+                    case 'call':
+                        if (is_callable($param))
+                            $noError = call_user_func($param, $value, $data) !== false;
+                        else
+                            throw new Exception('Error check function for ' . $name . ' is not callable');
+                        break;
+                    case 'is':
+                    case '===':
+                        $noError = $value === $param;
+                        break;
+                    case 'not':
+                    case '!==':
+                        $noError = $value !== $param;
+                        break;
+                    case 'eq':
+                    case '==':
+                        $noError = $value == $param;
+                        break;
+                    case 'ne':
+                    case '!=':
+                    case '<>':
+                        $noError = $value != $param;
+                        break;
+                    case 'gt':
+                    case '>':
+                        $noError = $value > $param;
+                        break;
+                    case 'lt':
+                    case '<':
+                        $noError = $value < $param;
+                        break;
+                    case 'eg':
+                    case '>=':
+                        $noError = $value >= $param;
+                        break;
+                    case 'el':
+                    case '<=':
+                        $noError = $value <= $param;
+                        break;
+                    default:
+                        throw new Exception("Unknown check operation for $name");
+                }
+            } else {
+                $noError = true;
+            }
+
+            if (!$noError) {
+                $onError = strtolower($validate['onError']);
+                if ($onError === 'set') {
+                    $value = $validate['onErrorSet'] === '__DEFAULT__' ?
+                        $validate['default'] : $validate['onErrorSet'];
+                } elseif ($onError === 'return') {
+                    return $validate['onErrorReturn'];
+                }
+            }
+        }
+        return $validates['__DEFAULT_RETURN__'] ?? true;
     }
 }
