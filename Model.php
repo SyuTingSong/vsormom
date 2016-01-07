@@ -382,7 +382,7 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
             // second element should be:
             //     regular expression for match
             //     comparable value for is/not/eq/ne/lt/gt/el/eg
-            //     callable for call, pass current checking value and entire $data, expecting bool return.
+            //     callable for call, pass current checking value , entire $data and current checking $key, expecting bool return.
             'errorCheck' => false,
             // if errorCheck is enabled, onError can be set or return
             // onErrorSet and onErrorReturn would be use.
@@ -455,7 +455,7 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
                         break;
                     case 'call':
                         if (is_callable($param))
-                            $noError = call_user_func($param, $value, $data) !== false;
+                            $noError = call_user_func($param, $value, $data, $name) !== false;
                         else
                             throw new Exception('Error check function for ' . $name . ' is not callable');
                         break;
@@ -473,8 +473,13 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
                         break;
                     case 'ne':
                     case '!=':
-                    case '<>':
                         $noError = $value != $param;
+                        break;
+                    case 'between':
+                    case '<>':
+                        $min = min($param);
+                        $max = max($param);
+                        $noError = $value >= $min && $value <= $max;
                         break;
                     case 'gt':
                     case '>':
