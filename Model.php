@@ -177,7 +177,8 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
     public function save() {
         if ($this->_new) {
             $id = $this->medoo->insert($this->get_table_name(), $this->_properties);
-            $this->_properties['id'] = $id;
+            if (empty($this->_properties['id']))
+                $this->_properties['id'] = $id;
         } else {
             if (empty($this->_modified))
                 return $this;
