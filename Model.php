@@ -11,6 +11,7 @@
  * @property-read medoo $medoo
  * @property-read array $properties
  * @property-read string $table_name
+ * @property array $exported
  * @property int $id
  */
 class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
