@@ -518,4 +518,12 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
         }
         return $validates['__DEFAULT_RETURN__'] ?? true;
     }
+
+    public function set_exported(array $exp) {
+        $this->_exported = $exp;
+    }
+
+    public function get_exported():array {
+        return $this->_exported;
+    }
 }
