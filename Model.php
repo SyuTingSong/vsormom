@@ -14,7 +14,7 @@
  * @property array $exported
  * @property int $id
  */
-class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
+abstract class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
 
     /**
      * @var medoo
@@ -117,7 +117,23 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
     }
 
     public function load($id, $clone=false) {
-        return $this->one(['id' => $id], $clone);
+        if ($clone) {
+            $r = $this->medoo->fetch_class(get_class($this), [false])
+                ->get($this->get_table_name(), '*', ['id' => $id]);
+            if ($r instanceof Model) {
+                $r->type_correct();
+                $r->_trace = true;
+                $r->_new = false;
+                return $r;
+            }
+        } else {
+            $r = $this->medoo->get($this->get_table_name(), '*', ['id' => $id]);
+            if (!empty($r)) {
+                $this->setup($r);
+                return $this;
+            }
+        }
+        return null;
     }
 
     public function one($where = null, $clone = false) {
@@ -274,7 +290,7 @@ class Model implements ArrayAccess, IteratorAggregate, JsonSerializable {
     }
 
     public function __toString() {
-        return json_encode($this);
+        return $this->table_name . '_' . $this->id;
     }
 
 /// ArrayAccess methods
