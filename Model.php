@@ -208,6 +208,14 @@ abstract class Model implements ArrayAccess, IteratorAggregate, JsonSerializable
         return $this;
     }
 
+    public function remove($id = null) {
+        if (empty($id)) {
+            $id = $this->id;
+        }
+        $this->medoo->delete($this->get_table_name(), ['id' => $id]);
+        return $this;
+    }
+
     public function get_table_name() {
         return substr( // remove the Model suffix
             basename( // remove the namespaces
